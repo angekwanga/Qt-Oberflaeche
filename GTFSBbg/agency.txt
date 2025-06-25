@@ -1,0 +1,3 @@
+"agency_id","agency_name","agency_url","agency_timezone","agency_lang","agency_phone"
+150,"Verkehrsbetrieb Potsdam GmbH","http://www.vip-potsdam.de","Europe/Berlin","de",""
+108,"DB Regio AG","http://www.bahn.de/brandenburg","Europe/Berlin","de",""

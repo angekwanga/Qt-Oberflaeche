@@ -1,0 +1,33 @@
+level_id,level_index,level_name
+1,2,
+101,1,Bahnsteige DB & S-Bahn
+106,0,Straßen- und Bahnsteigebene
+114,2,Bahnsteigebene
+119,2,Bahnsteige
+132,0,untere Bahnsteigebene
+15,1,Regional und S-Bahnsteig
+156,0,Straßen- und Bahnseigebene
+162,1,Bahnsteig Gleis 1 und 3
+166,0,"Straßenebene, Bahnhofshalle und Bahnsteige"
+169,2,Obere Bahnsteige
+174,0,Straßen- & Bahnsteigebene
+180,0,Straßenebene / Bahnsteig Gleis 2
+181,1,Empfangshalle / Bahnsteig 1
+182,1,Gleis 2
+183,0,Straßenebene/Gleis 1
+184,0,Straßenebene/Bahnsteig
+187,1,Bahnsteig Gleis 2
+188,2,Bahnsteig Gleis 6 und 7
+189,0,Straßenebene / Bahnsteig
+2,-1,
+21,-4,S-Bahnsteigebene
+22,-3,
+23,4,
+25,2,Bahnsteig
+3,-2,
+33,1,Bahnsteigebene
+4,0,
+5,1,
+50,1,Bahnsteig
+8,2,DB Bahnsteige
+9,0,Straßenebene
