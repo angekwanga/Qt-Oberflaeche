@@ -11,6 +11,7 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QHeaderView>
+#include <QFrame>
 #include "network.h"
 
 QT_BEGIN_NAMESPACE
@@ -41,11 +42,6 @@ private:
     // UI Components
     QWidget *centralWidget;
     QVBoxLayout *mainLayout;
-    QHBoxLayout *inputLayout;
-    QHBoxLayout *startLayout;
-    QHBoxLayout *destLayout;
-    QHBoxLayout *timeLayout;
-    QHBoxLayout *buttonLayout;
     
     QLabel *startLabel;
     QComboBox *startStopCombo;
@@ -55,7 +51,6 @@ private:
     QTimeEdit *departureTimeEdit;
     QPushButton *calculateButton;
     QTableWidget *routeTable;
-    QLabel *statusLabel;
 
     // Network data
     bht::Network *network;

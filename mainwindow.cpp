@@ -37,73 +37,74 @@ void MainWindow::setupUI()
     setCentralWidget(centralWidget);
     
     mainLayout = new QVBoxLayout(centralWidget);
+    mainLayout->setSpacing(10);
+    mainLayout->setContentsMargins(20, 20, 20, 20);
     
     // Title
-    QLabel *titleLabel = new QLabel("GTFS Route Planner", this);
-    titleLabel->setAlignment(Qt::AlignCenter);
-    titleLabel->setStyleSheet("font-size: 18px; font-weight: bold; margin: 10px;");
+    QLabel *titleLabel = new QLabel("Anwendung   Geben Sie Text ein", this);
+    titleLabel->setAlignment(Qt::AlignLeft);
+    titleLabel->setStyleSheet("font-size: 14px; font-weight: bold; margin-bottom: 10px;");
     mainLayout->addWidget(titleLabel);
     
-    // Input section
-    inputLayout = new QVBoxLayout();
+    // Input section in a frame
+    QFrame *inputFrame = new QFrame(this);
+    inputFrame->setFrameStyle(QFrame::Box);
+    inputFrame->setStyleSheet("QFrame { border: 1px solid #ccc; background-color: #f9f9f9; }");
+    QVBoxLayout *frameLayout = new QVBoxLayout(inputFrame);
+    frameLayout->setSpacing(15);
+    frameLayout->setContentsMargins(15, 15, 15, 15);
     
     // Start stop selection
-    startLayout = new QHBoxLayout();
-    startLabel = new QLabel("Start Station:", this);
-    startLabel->setMinimumWidth(120);
+    startLabel = new QLabel("Station für die Abfahrt auswählen:", this);
     startStopCombo = new QComboBox(this);
     startStopCombo->setEnabled(false);
-    startLayout->addWidget(startLabel);
-    startLayout->addWidget(startStopCombo);
-    inputLayout->addLayout(startLayout);
+    startStopCombo->setMinimumHeight(25);
+    frameLayout->addWidget(startLabel);
+    frameLayout->addWidget(startStopCombo);
     
     // Destination stop selection
-    destLayout = new QHBoxLayout();
-    destLabel = new QLabel("Destination:", this);
-    destLabel->setMinimumWidth(120);
+    destLabel = new QLabel("Ziel auswählen:", this);
     destStopCombo = new QComboBox(this);
     destStopCombo->setEnabled(false);
-    destLayout->addWidget(destLabel);
-    destLayout->addWidget(destStopCombo);
-    inputLayout->addLayout(destLayout);
+    destStopCombo->setMinimumHeight(25);
+    frameLayout->addWidget(destLabel);
+    frameLayout->addWidget(destStopCombo);
     
     // Departure time
-    timeLayout = new QHBoxLayout();
-    timeLabel = new QLabel("Departure Time:", this);
-    timeLabel->setMinimumWidth(120);
+    timeLabel = new QLabel("Gewünschte Abfahrtszeit:", this);
     departureTimeEdit = new QTimeEdit(this);
-    departureTimeEdit->setTime(QTime::currentTime());
+    departureTimeEdit->setTime(QTime(0, 0, 0));
+    departureTimeEdit->setDisplayFormat("hh:mm");
     departureTimeEdit->setEnabled(false);
-    timeLayout->addWidget(timeLabel);
-    timeLayout->addWidget(departureTimeEdit);
-    inputLayout->addLayout(timeLayout);
+    departureTimeEdit->setMinimumHeight(25);
+    frameLayout->addWidget(timeLabel);
+    frameLayout->addWidget(departureTimeEdit);
     
     // Calculate button
-    buttonLayout = new QHBoxLayout();
-    calculateButton = new QPushButton("Calculate Route", this);
+    calculateButton = new QPushButton("Route berechnen", this);
     calculateButton->setEnabled(false);
-    calculateButton->setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 10px; font-weight: bold; } QPushButton:disabled { background-color: #cccccc; }");
-    buttonLayout->addStretch();
-    buttonLayout->addWidget(calculateButton);
-    buttonLayout->addStretch();
-    inputLayout->addLayout(buttonLayout);
+    calculateButton->setMinimumHeight(35);
+    calculateButton->setStyleSheet("QPushButton { background-color: #e0e0e0; border: 1px solid #999; } QPushButton:enabled { background-color: #ffffff; } QPushButton:disabled { background-color: #f0f0f0; color: #999; }");
+    frameLayout->addWidget(calculateButton);
     
-    mainLayout->addLayout(inputLayout);
+    mainLayout->addWidget(inputFrame);
     
-    // Status label
-    statusLabel = new QLabel("Select start and destination stations", this);
-    statusLabel->setStyleSheet("color: #666; font-style: italic; margin: 10px;");
-    mainLayout->addWidget(statusLabel);
+    // Route section
+    QLabel *routeLabel = new QLabel("Ihre Route:", this);
+    routeLabel->setStyleSheet("font-weight: bold; margin-top: 10px;");
+    mainLayout->addWidget(routeLabel);
     
     // Route table
     routeTable = new QTableWidget(this);
     routeTable->setColumnCount(4);
     QStringList headers;
-    headers << "Stop" << "Arrival Time" << "Departure Time" << "Trip ID";
+    headers << "Station" << "Ankunftszeit" << "Abfahrtszeit" << "Fahrt ID";
     routeTable->setHorizontalHeaderLabels(headers);
     routeTable->horizontalHeader()->setStretchLastSection(true);
     routeTable->setAlternatingRowColors(true);
     routeTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    routeTable->setFrameStyle(QFrame::Box);
+    routeTable->setStyleSheet("QTableWidget { border: 1px solid #ccc; }");
     mainLayout->addWidget(routeTable);
     
     // Connect signals
@@ -136,8 +137,8 @@ void MainWindow::populateStopComboBoxes()
     startStopCombo->clear();
     destStopCombo->clear();
     
-    startStopCombo->addItem("-- Select Start Station --", "");
-    destStopCombo->addItem("-- Select Destination --", "");
+    startStopCombo->addItem("", "");
+    destStopCombo->addItem("", "");
     
     for (const auto& stop : allStops) {
         QString displayName = QString::fromStdString(stop.name);
@@ -148,7 +149,6 @@ void MainWindow::populateStopComboBoxes()
     }
     
     startStopCombo->setEnabled(true);
-    statusLabel->setText("Select start station");
 }
 
 void MainWindow::updateButtonState()
@@ -160,16 +160,6 @@ void MainWindow::updateButtonState()
     destStopCombo->setEnabled(startSelected);
     departureTimeEdit->setEnabled(startSelected && destSelected);
     calculateButton->setEnabled(startSelected && destSelected && timeValid);
-    
-    if (startSelected && !destSelected) {
-        statusLabel->setText("Select destination station");
-    } else if (startSelected && destSelected && !timeValid) {
-        statusLabel->setText("Select departure time");
-    } else if (startSelected && destSelected && timeValid) {
-        statusLabel->setText("Ready to calculate route");
-    } else {
-        statusLabel->setText("Select start station");
-    }
 }
 
 void MainWindow::onStartStopChanged()
@@ -196,12 +186,12 @@ void MainWindow::onCalculateRoute()
     QTime departureTime = departureTimeEdit->time();
     
     if (startStopId.isEmpty() || destStopId.isEmpty()) {
-        displayError("Please select both start and destination stations.");
+        displayError("Bitte wählen Sie sowohl Start- als auch Zielstation aus.");
         return;
     }
     
     if (startStopId == destStopId) {
-        displayError("Start and destination stations cannot be the same.");
+        displayError("Start- und Zielstation können nicht identisch sein.");
         return;
     }
     
@@ -212,9 +202,6 @@ void MainWindow::onCalculateRoute()
     gtfsTime.second = departureTime.second();
     
     try {
-        statusLabel->setText("Calculating route...");
-        QApplication::processEvents(); // Update UI
-        
         std::vector<bht::StopTime> route = network->getTravelPlanDepartingAt(
             startStopId.toStdString(), 
             destStopId.toStdString(), 
@@ -222,15 +209,13 @@ void MainWindow::onCalculateRoute()
         );
         
         if (route.empty()) {
-            displayError("No route found between the selected stations at the specified time.");
-            statusLabel->setText("No route found");
+            displayError("Keine Route zwischen den gewählten Stationen zur angegebenen Zeit gefunden.");
+            routeTable->setRowCount(0);
         } else {
             displayRoute(route);
-            statusLabel->setText(QString("Route found with %1 stops").arg(route.size()));
         }
     } catch (const std::exception& e) {
-        displayError(QString("Error calculating route: %1").arg(e.what()));
-        statusLabel->setText("Error occurred");
+        displayError(QString("Fehler bei der Routenberechnung: %1").arg(e.what()));
     }
 }
 
@@ -270,7 +255,7 @@ void MainWindow::displayRoute(const std::vector<bht::StopTime>& route)
 
 void MainWindow::displayError(const QString& message)
 {
-    QMessageBox::warning(this, "Route Calculation Error", message);
+    QMessageBox::warning(this, "Routenberechnung", message);
 }
 
 QString MainWindow::formatTime(const bht::GTFSTime& time)
