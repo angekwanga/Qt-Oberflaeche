@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <cmath>
+#include <queue>
 
 namespace bht {
 
@@ -71,11 +72,6 @@ std::string Network::getTripDisplayName(Trip trip) {
   return trip.shortName + " - " + trip.headsign;
 }
 
-/**
- * @brief Return a vector of all stops and their times associated with the given trip
- * @param tripId ID of the trip to get stop times for
- * @return Ordered result vector of stop times
- */
 std::vector<StopTime> Network::getStopTimesForTrip(std::string tripId) {
   return searchStopTimesForTrip("", tripId);
 }
@@ -100,17 +96,46 @@ std::vector<StopTime> Network::searchStopTimesForTrip(std::string needle, std::s
     return result;
 }
 
+// AUFGABE 5a: Extended getStopsForTransfer to include zone_id
 std::vector<Stop> Network::getStopsForTransfer(const std::string& stopId) {
   std::vector<Stop> result;
+  std::set<std::string> addedStops; // To avoid duplicates
+  
   Stop stop = stops.at(stopId);
+  
+  // Add the original stop
+  result.push_back(stop);
+  addedStops.insert(stop.id);
+  
+  // Handle parent station logic (existing from Übungsblatt 4)
   if (stop.locationType == LocationType_Stop && !stop.parentStation.empty()) {
     // This is a generic stop / platform
     stop = stops.at(stop.parentStation);
+    if (addedStops.find(stop.id) == addedStops.end()) {
+      result.push_back(stop);
+      addedStops.insert(stop.id);
+    }
   }
 
+  // Add stops that share the same parent station
   auto range = stopStations.equal_range(stop.id);
   for (auto iterator = range.first; iterator != range.second; ++iterator) {
-    result.push_back(stops[iterator->second]);
+    if (addedStops.find(iterator->second) == addedStops.end()) {
+      result.push_back(stops[iterator->second]);
+      addedStops.insert(iterator->second);
+    }
+  }
+  
+  // NEW: Add stops that share the same zone_id
+  Stop originalStop = stops.at(stopId);
+  if (!originalStop.zoneId.empty()) {
+    auto zoneRange = zoneStops.equal_range(originalStop.zoneId);
+    for (auto iterator = zoneRange.first; iterator != zoneRange.second; ++iterator) {
+      if (addedStops.find(iterator->second) == addedStops.end()) {
+        result.push_back(stops[iterator->second]);
+        addedStops.insert(iterator->second);
+      }
+    }
   }
 
   return result;
@@ -192,6 +217,129 @@ std::vector<Stop> Network::getTravelPath(const std::string& fromStopId, const st
     p = previous.find(p->second);
   }
   std::reverse(result.begin(), result.end());
+  return result;
+}
+
+// Helper function to compare times
+bool Network::isTimeGreaterOrEqual(const GTFSTime& time1, const GTFSTime& time2) {
+  if (time1.hour != time2.hour) {
+    return time1.hour >= time2.hour;
+  }
+  if (time1.minute != time2.minute) {
+    return time1.minute >= time2.minute;
+  }
+  return time1.second >= time2.second;
+}
+
+// AUFGABE 5b: getTravelPlanDepartingAt implementation
+std::vector<StopTime> Network::getTravelPlanDepartingAt(const std::string& fromStopId, 
+                                                        const std::string& toStopId, 
+                                                        const GTFSTime& departureTime) {
+  std::vector<StopTime> result;
+  
+  // Use modified Dijkstra with time constraints
+  std::map<std::string, GTFSTime> earliestArrival;
+  std::map<std::string, StopTime> previousStopTime;
+  std::priority_queue<std::pair<int, std::string>, 
+                     std::vector<std::pair<int, std::string>>, 
+                     std::greater<std::pair<int, std::string>>> pq;
+  
+  // Initialize
+  for (auto& stop : stops) {
+    earliestArrival[stop.first] = {23, 59, 59}; // Max time
+  }
+  
+  earliestArrival[fromStopId] = departureTime;
+  pq.push({departureTime.hour * 3600 + departureTime.minute * 60 + departureTime.second, fromStopId});
+  
+  while (!pq.empty()) {
+    auto current = pq.top();
+    pq.pop();
+    
+    std::string currentStopId = current.second;
+    GTFSTime currentTime = earliestArrival[currentStopId];
+    
+    if (currentStopId == toStopId) {
+      break;
+    }
+    
+    // Check all trips passing through this stop
+    auto tripsRange = stopTrips.equal_range(currentStopId);
+    for (auto iterator = tripsRange.first; iterator != tripsRange.second; ++iterator) {
+      std::string tripId = iterator->second;
+      
+      // Get all stop times for this trip
+      std::vector<StopTime> tripStopTimes = getStopTimesForTrip(tripId);
+      
+      // Find current stop in this trip
+      auto currentStopIt = std::find_if(tripStopTimes.begin(), tripStopTimes.end(),
+                                       [currentStopId](const StopTime& st) {
+                                         return st.stopId == currentStopId;
+                                       });
+      
+      if (currentStopIt != tripStopTimes.end()) {
+        // Check if we can catch this trip (departure time must be >= current time)
+        if (isTimeGreaterOrEqual(currentStopIt->departureTime, currentTime)) {
+          // Check all subsequent stops in this trip
+          for (auto nextStopIt = currentStopIt + 1; nextStopIt != tripStopTimes.end(); ++nextStopIt) {
+            std::string nextStopId = nextStopIt->stopId;
+            
+            // If this arrival time is better than what we have
+            if (isTimeGreaterOrEqual(earliestArrival[nextStopId], nextStopIt->arrivalTime)) {
+              earliestArrival[nextStopId] = nextStopIt->arrivalTime;
+              previousStopTime[nextStopId] = *nextStopIt;
+              
+              int timeInSeconds = nextStopIt->arrivalTime.hour * 3600 + 
+                                 nextStopIt->arrivalTime.minute * 60 + 
+                                 nextStopIt->arrivalTime.second;
+              pq.push({timeInSeconds, nextStopId});
+            }
+          }
+        }
+      }
+    }
+    
+    // Also check transfer possibilities
+    std::vector<Stop> transfers = getStopsForTransfer(currentStopId);
+    for (auto& transfer : transfers) {
+      if (transfer.id != currentStopId) {
+        if (isTimeGreaterOrEqual(earliestArrival[transfer.id], currentTime)) {
+          earliestArrival[transfer.id] = currentTime;
+          // For transfers, we don't add to previousStopTime as it's not a real stop time
+        }
+      }
+    }
+  }
+  
+  // Reconstruct path
+  if (previousStopTime.find(toStopId) != previousStopTime.end()) {
+    std::vector<StopTime> path;
+    std::string currentId = toStopId;
+    
+    while (previousStopTime.find(currentId) != previousStopTime.end()) {
+      path.push_back(previousStopTime[currentId]);
+      
+      // Find previous stop in the same trip
+      std::string tripId = previousStopTime[currentId].tripId;
+      std::vector<StopTime> tripStopTimes = getStopTimesForTrip(tripId);
+      
+      auto currentIt = std::find_if(tripStopTimes.begin(), tripStopTimes.end(),
+                                   [currentId](const StopTime& st) {
+                                     return st.stopId == currentId;
+                                   });
+      
+      if (currentIt != tripStopTimes.begin()) {
+        currentIt--;
+        currentId = currentIt->stopId;
+      } else {
+        break;
+      }
+    }
+    
+    std::reverse(path.begin(), path.end());
+    result = path;
+  }
+  
   return result;
 }
 
@@ -376,6 +524,11 @@ void Network::readStops(std::string source) {
       } 
       else {
         stopStations.insert(std::make_pair(item.id, item.id));
+      }
+      
+      // NEW: Add zone mapping for Übungsblatt 5
+      if (!item.zoneId.empty()) {
+        zoneStops.insert(std::make_pair(item.zoneId, item.id));
       }
     }
   } while (reader.next());

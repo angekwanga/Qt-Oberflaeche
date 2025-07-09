@@ -34,6 +34,16 @@ class Network {
      */
     GTFSTime parseTime(std::string input);
 
+    /**
+     * Compare two GTFSTime objects
+     */
+    bool isTimeGreaterOrEqual(const GTFSTime& time1, const GTFSTime& time2);
+
+    /**
+     * Helper function to get neighbors with time constraints
+     */
+    std::unordered_set<std::string> getNeighborsWithTime(const std::string& stopId, const GTFSTime& arrivalTime);
+
   public:
     /// @brief Properties fetched from GTFS files
     std::unordered_map<std::string, Agency> agencies;
@@ -49,6 +59,7 @@ class Network {
     std::multimap<std::string, std::string> stopStations; // Mapping of a stop id to associated child stops id of statons
     std::multimap<std::string, std::string> stopTrips; // Mapping of a stop id to associated trip ids the stop belongs to
     std::multimap<std::string, std::string> tripStops; // Mapping of a trip id to associated stops id
+    std::multimap<std::string, std::string> zoneStops; // Mapping of zone_id to stop_id
     std::vector<Transfer> transfers;
     std::vector<Trip> trips;
     std::unordered_map<std::string, std::shared_ptr<NetworkScheduledTrip>> scheduledTrips; // Mapping of trip ids to scheduled trips
@@ -118,6 +129,7 @@ class Network {
 
     /**
      * @brief Find all stops that reflect platforms which share a station / parent station
+     * Also includes stops that share the same zone_id (Übungsblatt 5 extension)
      * @param stopId The id of the platform at a station or a station to return the related stops for
      * @return result vector of stops for the given station
      */
@@ -138,6 +150,17 @@ class Network {
      * @return Stop travel path
      */
     std::vector<bht::Stop> getTravelPath(const std::string& fromStopId, const std::string& toStopId);
+
+    /**
+     * @brief Calculate travel plan with departure time consideration
+     * @param fromStopId The id of the stop to start the route
+     * @param toStopId The id of the destination stop
+     * @param departureTime The desired departure time
+     * @return Vector of StopTime objects representing the travel plan
+     */
+    std::vector<bht::StopTime> getTravelPlanDepartingAt(const std::string& fromStopId, 
+                                                        const std::string& toStopId, 
+                                                        const GTFSTime& departureTime);
 
     /**
      * @brief Return a iterable object that represents the given trip
